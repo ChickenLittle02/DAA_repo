@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Máquina de Turing: contador binario con potencial</title>
+<style>
+:root {
+  color-scheme: light;
+  --ink: #182338;
+  --muted: #607086;
+  --paper: #f4f7fb;
+  --card: #ffffff;
+  --line: #d7e0ec;
+  --blue: #2457d6;
+  --blue-soft: #eaf0ff;
+  --green: #16835e;
+  --green-soft: #e4f7ee;
+  --orange: #c46a16;
+  --orange-soft: #fff1df;
+  --red: #bd3d4a;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; }
+main { max-width: 1240px; margin: 0 auto; padding: 24px; }
+h1 { margin: 0 0 8px; font-size: clamp(1.55rem, 3vw, 2.2rem); line-height: 1.15; }
+h2 { font-size: 1.05rem; margin: 0 0 12px; }
+p { margin: 6px 0; }
+.sub { color: var(--muted); margin-bottom: 20px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; box-shadow: 0 4px 16px #233c5b0a; min-width: 0; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 16px; }
+label { display: grid; gap: 5px; font-size: .86rem; color: var(--muted); }
+input { width: 190px; max-width: 100%; padding: 10px 12px; border: 1px solid #bdcadd; border-radius: 9px; font: 600 1rem ui-monospace, monospace; color: var(--ink); background: white; }
+button { border: 0; border-radius: 9px; padding: 10px 14px; font-weight: 700; cursor: pointer; background: var(--blue); color: white; }
+button.secondary { background: #e7edf6; color: var(--ink); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+button:focus-visible, input:focus-visible { outline: 3px solid #91b1ff; outline-offset: 2px; }
+.layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(300px, 1fr); gap: 16px; }
+.tape { display: flex; flex-wrap: wrap; gap: 5px; align-items: end; padding: 18px 2px 4px; overflow-x: auto; }
+.cellwrap { min-width: 39px; text-align: center; }
+.headmark { height: 24px; color: var(--blue); font-size: 20px; font-weight: 900; line-height: 22px; }
+.cell { height: 46px; border: 2px solid #aab9cc; border-radius: 8px; display: grid; place-items: center; font: 700 1.25rem ui-monospace, monospace; background: white; }
+.cell.head { border-color: var(--blue); background: var(--blue-soft); box-shadow: 0 0 0 2px #2457d61a; }
+.cell.blank { color: #9aa7b8; background: #f7f9fc; }
+.tape-caption { font-size: .83rem; color: var(--muted); margin-top: 10px; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin-top: 16px; }
+.stat { background: #f7f9fd; border: 1px solid var(--line); border-radius: 12px; padding: 11px; }
+.stat .label { color: var(--muted); font-size: .78rem; }
+.stat .value { font-size: 1.35rem; font-weight: 800; margin-top: 3px; overflow-wrap: anywhere; }
+.potential-bar { height: 12px; border-radius: 999px; background: #e8edf5; overflow: hidden; margin: 12px 0 6px; }
+.potential-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #24a879, #83d8b2); transition: width .18s ease; }
+.graph { width: 100%; height: auto; display: block; }
+.node { fill: #f7f9fd; stroke: #8999af; stroke-width: 2.5; }
+.node.active { fill: #fff0cf; stroke: #d97706; stroke-width: 4; }
+.node.final { fill: #e2f8ec; stroke: #16835e; }
+.edge { fill: none; stroke: #8291a7; stroke-width: 2.3; marker-end: url(#arrow); }
+.edge.active { stroke: #d97706; stroke-width: 4.5; marker-end: url(#arrowHot); }
+.edge-label { font-size: 12px; fill: #40516a; font-weight: 600; }
+.edge-label.active { fill: #a34f00; font-weight: 900; }
+.node-label { font-size: 16px; fill: var(--ink); font-weight: 800; text-anchor: middle; dominant-baseline: middle; }
+.note { padding: 10px 12px; background: var(--blue-soft); border-radius: 10px; margin-top: 12px; }
+.status { min-height: 48px; font-weight: 650; }
+table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 8px 6px; vertical-align: top; }
+th { color: var(--muted); font-weight: 700; }
+code { background: #edf1f7; padding: 2px 5px; border-radius: 5px; }
+.history { max-height: 240px; overflow: auto; }
+.history .row { display: grid; grid-template-columns: 44px 1fr 72px; gap: 8px; border-bottom: 1px solid var(--line); padding: 7px 0; font-size: .85rem; }
+.history .row.current { background: var(--orange-soft); }
+.small { color: var(--muted); font-size: .84rem; }
+@media (max-width: 850px) { main { padding: 14px; } .layout { grid-template-columns: 1fr; } .stats { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Contador binario con máquina de Turing</h1>
+  <p class="sub">Simulación paso a paso de <strong>sumar 1</strong>, con el grafo de estados y el potencial Φ = 2 × número de unos.</p>
+
+  <section class="card" style="margin-bottom:16px">
+    <div class="controls">
+      <label>Número binario inicial
+        <input id="inputBits" value="11100" inputmode="numeric" autocomplete="off" spellcheck="false" aria-label="Número binario inicial">
+      </label>
+      <button id="loadBtn">Cargar número</button>
+      <button id="prevBtn" class="secondary">← Paso anterior</button>
+      <button id="nextBtn">Siguiente paso →</button>
+      <button id="playBtn" class="secondary">▶ Ejecutar</button>
+      <button id="resetBtn" class="secondary">Reiniciar</button>
+    </div>
+    <p class="small">La cinta se muestra como <code>$ bits invertidos $ $ $</code>: el delimitador izquierdo es <code>$</code>, seguido por los bits con el menos significativo a la izquierda. El campo de entrada acepta el número en su escritura habitual (MSB a la izquierda); la simulación lo invierte al colocarlo en la cinta. Los símbolos <code>$</code> posteriores al número son posiciones disponibles para ampliar su longitud. El cabezal comienza sobre el bit menos significativo.</p>
+  </section>
+
+  <div class="layout">
+    <section class="card">
+      <h2>1. Cinta y cabezal</h2>
+      <div id="tape" class="tape" aria-live="polite"></div>
+      <div id="tapeCaption" class="tape-caption"></div>
+      <div class="stats">
+        <div class="stat"><div class="label">Estado actual</div><div class="value" id="stateValue">q0</div></div>
+        <div class="stat"><div class="label">Pasos ejecutados</div><div class="value" id="stepsValue">0</div></div>
+        <div class="stat"><div class="label">Valor binario</div><div class="value" id="numberValue">11100</div></div>
+      </div>
+      <div class="note status" id="explanation">Lista para empezar.</div>
+    </section>
+
+    <section class="card">
+      <h2>2. Grafo de estados</h2>
+      <svg class="graph" viewBox="0 0 520 300" role="img" aria-label="Grafo de estados q0, q1 y q2 de la máquina de Turing">
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#8291a7"/></marker>
+          <marker id="arrowHot" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#d97706"/></marker>
+        </defs>
+        <path id="e_c1" class="edge" d="M70 55 C35 5 135 5 100 55"/>
+        <text id="l_c1" class="edge-label" x="85" y="17" text-anchor="middle">1→0, R</text>
+        <path id="e_c0" class="edge" d="M110 91 C145 125 195 125 225 91"/>
+        <text id="l_c0" class="edge-label" x="168" y="139" text-anchor="middle">0→1, L</text>
+        <path id="e_cB" class="edge" d="M110 66 C145 35 190 35 225 66"/>
+        <text id="l_cB" class="edge-label" x="168" y="39" text-anchor="middle">$→1, L</text>
+        <path id="e_vbits" class="edge" d="M285 85 C330 45 335 130 285 110"/>
+        <text id="l_vbits" class="edge-label" x="350" y="73" text-anchor="middle">0/1→igual, L</text>
+        <path id="e_vB" class="edge" d="M285 105 C340 155 390 155 425 105"/>
+        <text id="l_vB" class="edge-label" x="355" y="169" text-anchor="middle">$→$, R</text>
+        <circle id="n_q0" class="node active" cx="85" cy="82" r="32"/>
+        <text class="node-label" x="85" y="82">q0</text>
+        <circle id="n_q1" class="node" cx="255" cy="88" r="32"/>
+        <text class="node-label" x="255" y="88">q1</text>
+        <circle id="n_q2" class="node final" cx="455" cy="91" r="29"/>
+        <circle class="node final" cx="455" cy="91" r="23" style="fill:none;stroke-width:1.5"/>
+        <text class="node-label" x="455" y="91">q2</text>
+        <text x="20" y="213" fill="#607086" font-size="12">Etiqueta: símbolo leído → símbolo escrito, movimiento.</text>
+        <text x="20" y="236" fill="#607086" font-size="12">L = izquierda · R = derecha · S = no mover.</text>
+        <text x="20" y="259" fill="#607086" font-size="12">El bucle de q0 procesa los unos; el de q1 regresa al inicio.</text>
+        <text x="20" y="282" fill="#607086" font-size="12">q2 es final: el cabezal vuelve a la derecha y queda en el LSB.</text>
+      </svg>
+      <p class="small">Nota: q0 propaga el acarreo hacia la derecha. Cuando encuentra 0 o $, pasa a q1 y regresa hacia la izquierda. Al encontrar el $ inicial, rebota hacia la derecha a q2 sobre el bit menos significativo.</p>
+    </section>
+  </div>
+
+  <div class="layout" style="margin-top:16px">
+    <section class="card">
+      <h2>3. Potencial y costo amortizado</h2>
+      <div class="stats">
+        <div class="stat"><div class="label">Unos en la cinta</div><div class="value" id="onesValue">3</div></div>
+        <div class="stat"><div class="label">Potencial Φ = 2u</div><div class="value" id="phiValue">6</div></div>
+        <div class="stat"><div class="label">Cambio ΔΦ del paso</div><div class="value" id="deltaValue">0</div></div>
+      </div>
+      <div class="potential-bar"><div id="potentialFill" class="potential-fill"></div></div>
+      <p id="potentialText">El potencial es dos veces el número de unos almacenados en los bits del número: Φ = 2u.</p>
+      <p class="small">Para el análisis amortizado, se agrupan todos los pasos de una suma: a = c + Φ(después) − Φ(antes). La cota constante se obtiene por incremento completo, no por cada movimiento individual.</p>
+      <table>
+        <thead><tr><th>Magnitud</th><th>En este incremento</th></tr></thead>
+        <tbody>
+          <tr><td>Costo real c</td><td id="realCost">0 pasos</td></tr>
+          <tr><td>Potencial al inicio</td><td id="phiStart">6</td></tr>
+          <tr><td>Potencial al final</td><td id="phiEnd">—</td></tr>
+          <tr><td>Costo amortizado a</td><td id="amortized">—</td></tr>
+        </tbody>
+      </table>
+    </section>
+    <section class="card">
+      <h2>4. Historial de pasos</h2>
+      <div id="stepDescription" class="status">La máquina está preparada.</div>
+      <div id="history" class="history"></div>
+    </section>
+  </div>
+
+  <section class="card" style="margin-top:16px">
+    <h2>Transiciones de la máquina</h2>
+    <table>
+      <thead><tr><th>Estado</th><th>Lee</th><th>Escribe</th><th>Mueve</th><th>Siguiente estado</th><th>Significado</th></tr></thead>
+      <tbody>
+        <tr><td>q0</td><td>1</td><td>0</td><td>R</td><td>q0</td><td>Apaga un 1 y continúa el acarreo hacia la derecha.</td></tr>
+        <tr><td>q0</td><td>0</td><td>1</td><td>L</td><td>q1</td><td>Enciende un 1; el acarreo termina y comienza el regreso.</td></tr>
+        <tr><td>q0</td><td>$</td><td>1</td><td>L</td><td>q1</td><td>Agrega un nuevo bit porque el número creció.</td></tr>
+        <tr><td>q1</td><td>0 o 1</td><td>igual</td><td>L</td><td>q1</td><td>Conserva el bit y continúa hacia el delimitador izquierdo.</td></tr>
+        <tr><td>q1</td><td>$</td><td>$</td><td>R</td><td>q2</td><td>Encuentra el delimitador inicial, avanza a la derecha y queda en el LSB.</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const DELIM = "$";
+  let frames = [], index = 0, timer = null;
+  const edgeIds = ["c1", "c0", "cB", "vbits", "vB"];
+
+  function countOnes(tape) {
+    return tape.filter(x => x === "1").length;
+  }
+
+  // La cinta guarda primero el LSB; para mostrar el valor habitual se invierte.
+  function visibleNumber(tape) {
+    const bits = tape.slice(1).filter(x => x === "0" || x === "1");
+    return bits.length ? bits.reverse().join("") : "0";
+  }
+
+  function buildFrames(inputBits) {
+    // El usuario escribe MSB a la izquierda; la cinta usa LSB a la izquierda.
+    const tape = [DELIM, ...inputBits.split("").reverse(), DELIM, DELIM, DELIM, DELIM];
+    let head = 1; // Primer bit a la derecha del delimitador izquierdo.
+    let state = "q0", steps = 0;
+    const startPhi = 2 * countOnes(tape);
+    const f = [];
+
+    function save(message, edge = null, delta = 0) {
+      f.push({
+        tape: [...tape], head, state, steps, message, edge, delta,
+        ones: countOnes(tape), phi: 2 * countOnes(tape), startPhi
+      });
+    }
+
+    save("Inicio: el cabezal está sobre el bit menos significativo. q0 comienza a sumar 1.", null, 0);
+
+    while (state !== "q2" && steps < 500) {
+      const read = tape[head];
+      let write = read, move = 0, next = state, edge = null, message = "";
+
+      if (state === "q0") {
+        if (read === "1") {
+          write = "0"; move = 1; next = "q0"; edge = "c1";
+          message = "q0 lee 1: lo cambia a 0 y avanza a la derecha; el acarreo continúa.";
+        } else if (read === "0") {
+          write = "1"; move = -1; next = "q1"; edge = "c0";
+          message = "q0 lee 0: lo cambia a 1. El acarreo termina y q1 comienza el regreso a la izquierda.";
+        } else if (read === DELIM) {
+          write = "1"; move = -1; next = "q1"; edge = "cB";
+          message = "q0 encuentra $ después del número: escribe 1 para agregar un nuevo bit y pasa a q1.";
+        }
+      } else if (state === "q1") {
+        if (read === "0" || read === "1") {
+          write = read; move = -1; next = "q1"; edge = "vbits";
+          message = `q1 conserva el bit ${read} y sigue hacia la izquierda para encontrar el $ inicial.`;
+        } else if (read === DELIM) {
+          write = DELIM; move = 1; next = "q2"; edge = "vB";
+          message = "q1 encuentra el $ inicial: avanza 1 posición a la derecha hacia el LSB y la máquina termina en q2.";
+        }
+      }
+
+      const oldPhi = 2 * countOnes(tape);
+      tape[head] = write;
+      head += move;
+      if (head < 0) { tape.unshift(DELIM); head = 0; }
+      if (head >= tape.length) tape.push(DELIM);
+      state = next;
+      steps++;
+      const newPhi = 2 * countOnes(tape);
+      save(message, edge, newPhi - oldPhi);
+    }
+    return f;
+  }
+
+  function clearEdges() {
+    edgeIds.forEach(id => {
+      $("e_" + id)?.classList.remove("active");
+      $("l_" + id)?.classList.remove("active");
+    });
+  }
+
+  function render() {
+    const f = frames[index];
+    if (!f) return;
+    $("tape").innerHTML = "";
+    f.tape.forEach((symbol, i) => {
+      const wrap = document.createElement("div");
+      wrap.className = "cellwrap";
+      const mark = document.createElement("div");
+      mark.className = "headmark";
+      mark.textContent = i === f.head ? "▲" : "";
+      const cell = document.createElement("div");
+      cell.className = "cell" + (i === f.head ? " head" : "") + (symbol === DELIM ? " blank" : "");
+      cell.textContent = symbol;
+      wrap.append(mark, cell);
+      $("tape").append(wrap);
+    });
+
+    $("tapeCaption").textContent = "La flecha ▲ indica el cabezal. El primer $ delimita el inicio; los $ a la derecha son posiciones disponibles.";
+    $("stateValue").textContent = f.state;
+    $("stepsValue").textContent = f.steps;
+    $("numberValue").textContent = visibleNumber(f.tape);
+    $("onesValue").textContent = f.ones;
+    $("phiValue").textContent = f.phi;
+    $("deltaValue").textContent = (f.delta > 0 ? "+" : "") + f.delta;
+    $("potentialFill").style.width = Math.min(100, f.phi / Math.max(2, f.startPhi, ...frames.map(x => x.phi)) * 100) + "%";
+    $("potentialText").textContent = `Φ = 2 × ${f.ones} unos = ${f.phi}. En este paso, ΔΦ = ${f.delta > 0 ? "+" : ""}${f.delta}.`;
+    $("stepDescription").textContent = `Paso ${f.steps}: ${f.message}`;
+    $("explanation").textContent = f.message;
+    $("prevBtn").disabled = index === 0;
+    $("nextBtn").disabled = index === frames.length - 1;
+    $("playBtn").textContent = timer ? "Ⅱ Pausar" : (index === frames.length - 1 ? "✓ Terminado" : "▶ Ejecutar");
+
+    clearEdges();
+    document.querySelectorAll(".node").forEach(n => n.classList.remove("active"));
+    $("n_" + f.state)?.classList.add("active");
+    if (f.edge) {
+      $("e_" + f.edge)?.classList.add("active");
+      $("l_" + f.edge)?.classList.add("active");
+    }
+
+    const final = frames[frames.length - 1];
+    $("realCost").textContent = `${final.steps} pasos`;
+    $("phiStart").textContent = final.startPhi;
+    $("phiEnd").textContent = final.phi;
+    $("amortized").textContent = `${final.steps + final.phi - final.startPhi} pasos amortizados (c + ΔΦ)`;
+
+    $("history").innerHTML = "";
+    const from = Math.max(0, index - 5), to = Math.min(frames.length, index + 2);
+    for (let j = from; j < to; j++) {
+      const h = frames[j], row = document.createElement("div");
+      row.className = "row" + (j === index ? " current" : "");
+      const a = document.createElement("strong"); a.textContent = h.steps;
+      const b = document.createElement("span"); b.textContent = h.message;
+      const c = document.createElement("span"); c.textContent = `Φ=${h.phi}`;
+      row.append(a, b, c);
+      $("history").append(row);
+    }
+  }
+
+  function stop() {
+    if (timer) clearInterval(timer);
+    timer = null;
+  }
+
+  function load() {
+    stop();
+    const raw = $("inputBits").value.trim();
+    if (!/^[01]+$/.test(raw)) {
+      $("explanation").textContent = "Entrada inválida: escribe al menos un bit, usando solamente 0 y 1.";
+      $("inputBits").focus();
+      return;
+    }
+    frames = buildFrames(raw);
+    index = 0;
+    render();
+  }
+
+  $("loadBtn").addEventListener("click", load);
+  $("inputBits").addEventListener("keydown", e => { if (e.key === "Enter") load(); });
+  $("prevBtn").addEventListener("click", () => { stop(); index = Math.max(0, index - 1); render(); });
+  $("nextBtn").addEventListener("click", () => { stop(); index = Math.min(frames.length - 1, index + 1); render(); });
+  $("resetBtn").addEventListener("click", load);
+  $("playBtn").addEventListener("click", () => {
+    if (timer) { stop(); render(); return; }
+    if (index >= frames.length - 1) index = 0;
+    timer = setInterval(() => {
+      if (index >= frames.length - 1) { stop(); render(); return; }
+      index++;
+      render();
+    }, 850);
+    render();
+  });
+  load();
+})();
+</script>
+</body>
+</html>
