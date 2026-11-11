@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador Algoritmo Boyer-Moore (n/3) - 2 Candidatos</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        
+        .code-font {
+            font-family: 'Fira Code', monospace;
+        }
+
+        .array-item {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .array-item.active {
+            transform: translateY(-8px) scale(1.05);
+            box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.5);
+        }
+
+        .triple-card {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-15px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col p-4 md:p-8">
+
+    <!-- Header -->
+    <header class="max-w-6xl mx-auto w-full mb-6">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent">
+                    Boyer-Moore Generalizado (n/3)
+                </h1>
+                <p class="text-slate-400 text-sm mt-1">
+                    Simulador interactivo de 2 candidatos con cancelación de tríos distintos y memoria constante <span class="code-font text-cyan-400">O(1)</span>.
+                </p>
+            </div>
+            <div class="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700 text-xs text-slate-300">
+                <i class="fa-solid fa-layer-group text-indigo-400"></i>
+                <span>Umbral: <strong class="text-cyan-400 code-font">&gt; ⌊n/3⌋</strong></span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-6xl mx-auto w-full flex-grow flex flex-col gap-6">
+
+        <!-- Controls & Input Panel -->
+        <section class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 md:p-6 shadow-xl backdrop-blur-sm">
+            <div class="flex flex-col gap-4">
+                <!-- Input Row -->
+                <div class="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+                    <div class="flex-grow">
+                        <label for="arrayInput" class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
+                            Arreglo de entrada <span class="text-slate-500 font-normal lowercase">(separado por comas, espacios o barras |)</span>
+                        </label>
+                        <div class="relative">
+                            <input type="text" id="arrayInput" 
+                                value="a, a, b, c, a, b, a, c, b" 
+                                placeholder="Ej: a, a, b  o  1, 2, 3, 1, 2"
+                                class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 code-font focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
+                        </div>
+                    </div>
+                    <div class="flex gap-2 self-end md:self-auto">
+                        <button id="btnLoad" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg shadow-lg shadow-blue-600/30 flex items-center gap-2 transition-all active:scale-95">
+                            <i class="fa-solid fa-play text-xs"></i> Cargar / Reiniciar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Presets -->
+                <div class="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-700/40 text-xs">
+                    <span class="text-slate-400 font-medium">Ejemplos rápidos:</span>
+                    <button class="preset-btn px-2.5 py-1 bg-slate-700/60 hover:bg-slate-700 text-slate-200 rounded border border-slate-600 transition-colors" data-preset="a, a, b">
+                        a, a, b (Falso Positivo)
+                    </button>
+                    <button class="preset-btn px-2.5 py-1 bg-slate-700/60 hover:bg-slate-700 text-slate-200 rounded border border-slate-600 transition-colors" data-preset="a, b, c, a, b, c, a, b">
+                        a, b, c, a, b, c, a, b (2 Frecuentes)
+                    </button>
+                    <button class="preset-btn px-2.5 py-1 bg-slate-700/60 hover:bg-slate-700 text-slate-200 rounded border border-slate-600 transition-colors" data-preset="1, 2, 3, 4, 5, 6, 7">
+                        1, 2, 3, 4, 5, 6, 7 (Cancelación continua)
+                    </button>
+                    <button class="preset-btn px-2.5 py-1 bg-slate-700/60 hover:bg-slate-700 text-slate-200 rounded border border-slate-600 transition-colors" data-preset="x, y, x, z, x, y, y">
+                        x, y, x, z, x, y, y (Mixto)
+                    </button>
+                </div>
+
+                <!-- Player Bar Controls -->
+                <div class="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-slate-700/40">
+                    <div class="flex items-center gap-2">
+                        <button id="btnPrev" disabled class="p-2.5 bg-slate-700 disabled:opacity-40 hover:bg-slate-600 text-white rounded-lg transition-all">
+                            <i class="fa-solid fa-backward-step"></i>
+                        </button>
+                        <button id="btnAutoPlay" class="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg shadow-lg shadow-emerald-600/20 flex items-center gap-2 transition-all">
+                            <i id="playIcon" class="fa-solid fa-play"></i> <span id="playText">Auto</span>
+                        </button>
+                        <button id="btnNext" class="p-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-all">
+                            <i class="fa-solid fa-forward-step"></i>
+                        </button>
+                        <button id="btnReset" class="p-2.5 bg-slate-700/80 hover:bg-slate-600 text-slate-300 rounded-lg transition-all" title="Reiniciar paso a paso">
+                            <i class="fa-solid fa-rotate-left"></i>
+                        </button>
+                    </div>
+
+                    <!-- Speed slider -->
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-gauge-high text-slate-400 text-sm"></i>
+                        <span class="text-xs text-slate-400">Velocidad:</span>
+                        <input type="range" id="speedSlider" min="200" max="2000" step="100" value="800" dir="rtl" class="w-24 accent-blue-500 cursor-pointer">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Dynamic Visualization Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Left 2 Cols: Array View + Candidates State -->
+            <div class="lg:col-span-2 flex flex-col gap-6">
+
+                <!-- Array Track Display -->
+                <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-xl flex flex-col gap-3">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-list-ol text-blue-400"></i> Arreglo y Puntero
+                        </h2>
+                        <span id="phaseBadge" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                            1ª Pasada: Selección
+                        </span>
+                    </div>
+
+                    <!-- Horizontal Scrollable Track -->
+                    <div class="overflow-x-auto py-6 px-2 min-h-[110px] flex items-center">
+                        <div id="arrayTrack" class="flex gap-3">
+                            <!-- Array elements inserted by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Candidates State Box -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Candidate 1 -->
+                    <div id="cardC1" class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 flex flex-col justify-between transition-all relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-1.5 h-full bg-cyan-500"></div>
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-xs font-semibold uppercase text-cyan-400 tracking-wider">Candidato 1 (c1)</span>
+                            <span id="cnt1Badge" class="px-2 py-0.5 rounded text-xs font-bold bg-cyan-950 text-cyan-300 border border-cyan-800 code-font">
+                                cnt1 = 0
+                            </span>
+                        </div>
+                        <div class="flex items-baseline justify-between mt-2">
+                            <div id="valC1" class="text-3xl font-bold code-font text-slate-100">
+                                None
+                            </div>
+                            <div class="text-xs text-slate-400">
+                                Estado: <span id="statusC1" class="text-slate-300 font-medium">Libre</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Candidate 2 -->
+                    <div id="cardC2" class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 flex flex-col justify-between transition-all relative overflow-hidden">
+                        <div class="absolute top-0 left-0 w-1.5 h-full bg-purple-500"></div>
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="text-xs font-semibold uppercase text-purple-400 tracking-wider">Candidato 2 (c2)</span>
+                            <span id="cnt2Badge" class="px-2 py-0.5 rounded text-xs font-bold bg-purple-950 text-purple-300 border border-purple-800 code-font">
+                                cnt2 = 0
+                            </span>
+                        </div>
+                        <div class="flex items-baseline justify-between mt-2">
+                            <div id="valC2" class="text-3xl font-bold code-font text-slate-100">
+                                None
+                            </div>
+                            <div class="text-xs text-slate-400">
+                                Estado: <span id="statusC2" class="text-slate-300 font-medium">Libre</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Explanation Box -->
+                <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 shadow-xl flex flex-col gap-2">
+                    <div class="flex items-center justify-between border-b border-slate-700/50 pb-2">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                            <i class="fa-solid fa-comment-dots"></i> Explicación del paso
+                        </span>
+                        <span id="stepCounter" class="text-xs text-slate-400 code-font">Paso 0 / 0</span>
+                    </div>
+                    <p id="stepDescription" class="text-slate-200 text-sm leading-relaxed min-h-[48px] flex items-center">
+                        Carga un arreglo y presiona <strong class="text-blue-400 mx-1">Siguiente</strong> para comenzar la visualización paso a paso.
+                    </p>
+                </div>
+
+            </div>
+
+            <!-- Right Col: Triples Stack & Verification Results -->
+            <div class="flex flex-col gap-6">
+
+                <!-- Triples Cancelled Stack (g grupos de 3 distintos) -->
+                <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-xl flex flex-col gap-4 flex-grow">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                            <i class="fa-solid fa-layer-group text-amber-400"></i> Pila de Tríos Cancelados
+                        </h2>
+                        <span id="triplesCountBadge" class="px-2 py-0.5 rounded text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            g = 0
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-400">
+                        Muestra los últimos 3 tríos de elementos distintos cancelados simultáneamente:
+                    </p>
+
+                    <!-- Triple Stack container -->
+                    <div id="triplesStack" class="flex flex-col gap-2.5 justify-end min-h-[180px] bg-slate-900/60 rounded-lg p-3 border border-slate-800">
+                        <div class="text-center text-slate-500 text-xs py-8 italic">
+                            No se han cancelado tríos todavía
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Phase 2 Verification & Final Result -->
+                <div id="phase2Card" class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 shadow-xl flex flex-col gap-3">
+                    <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2 border-b border-slate-700/60 pb-2">
+                        <i class="fa-solid fa-circle-check text-emerald-400"></i> Resultado Final (2ª Pasada)
+                    </h2>
+
+                    <div id="resultContent" class="text-xs text-slate-400 flex flex-col gap-2">
+                        <p>La verificación ocurre al completar la 1ª pasada recorriendo el arreglo para contar apariciones reales.</p>
+                        <div class="p-3 bg-slate-900/80 rounded-lg border border-slate-800 flex flex-col gap-2 mt-1">
+                            <div class="flex justify-between items-center">
+                                <span>Elementos en total (n):</span>
+                                <span id="resN" class="code-font text-slate-200 font-bold">0</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span>Umbral requerido (&gt; n/3):</span>
+                                <span id="resThreshold" class="code-font text-cyan-400 font-bold">0</span>
+                            </div>
+                            <div class="flex justify-between items-center pt-2 border-t border-slate-800">
+                                <span class="font-semibold text-slate-300">Elementos frecuentes:</span>
+                                <span id="resFinal" class="code-font text-emerald-400 font-bold text-sm">[ ]</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="max-w-6xl mx-auto w-full mt-8 pt-4 border-t border-slate-800 text-center text-xs text-slate-500 flex flex-col sm:flex-row justify-between items-center gap-2">
+        <span>Conferencia 3 — Ejercicio 8: Generalización de Boyer-Moore con 2 candidatos</span>
+        <span class="code-font text-slate-400">Memoria constante O(1)</span>
+    </footer>
+
+    <!-- Logic Script -->
+    <script>
+        // State variables
+        let rawArray = [];
+        let steps = [];
+        let currentStepIdx = 0;
+        let autoPlayTimer = null;
+
+        // DOM Elements
+        const arrayInput = document.getElementById('arrayInput');
+        const btnLoad = document.getElementById('btnLoad');
+        const btnPrev = document.getElementById('btnPrev');
+        const btnNext = document.getElementById('btnNext');
+        const btnAutoPlay = document.getElementById('btnAutoPlay');
+        const btnReset = document.getElementById('btnReset');
+        const playIcon = document.getElementById('playIcon');
+        const playText = document.getElementById('playText');
+        const speedSlider = document.getElementById('speedSlider');
+        const arrayTrack = document.getElementById('arrayTrack');
+        const cardC1 = document.getElementById('cardC1');
+        const cardC2 = document.getElementById('cardC2');
+        const valC1 = document.getElementById('valC1');
+        const valC2 = document.getElementById('valC2');
+        const cnt1Badge = document.getElementById('cnt1Badge');
+        const cnt2Badge = document.getElementById('cnt2Badge');
+        const statusC1 = document.getElementById('statusC1');
+        const statusC2 = document.getElementById('statusC2');
+        const stepDescription = document.getElementById('stepDescription');
+        const stepCounter = document.getElementById('stepCounter');
+        const phaseBadge = document.getElementById('phaseBadge');
+        const triplesStack = document.getElementById('triplesStack');
+        const triplesCountBadge = document.getElementById('triplesCountBadge');
+        const resN = document.getElementById('resN');
+        const resThreshold = document.getElementById('resThreshold');
+        const resFinal = document.getElementById('resFinal');
+
+        // Parse Input
+        function parseInput(str) {
+            if (!str) return [];
+            // Remove space around items, split by comma, space, or pipe
+            return str
+                .split(/[,|\s]+/)
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+        }
+
+        // Build Steps Simulation
+        function generateSteps(arr) {
+            const stepsList = [];
+            let c1 = null, cnt1 = 0;
+            let c2 = null, cnt2 = 0;
+            let gTriples = [];
+
+            // Step 0: Initial State
+            stepsList.push({
+                phase: 1,
+                ptrIndex: -1,
+                c1: null, cnt1: 0,
+                c2: null, cnt2: 0,
+                triples: [],
+                desc: `Inicio de la 1ª pasada. Arreglo con ${arr.length} elementos. Inicializamos candidatos c1=None, c2=None en 0.`,
+                actionType: 'init'
+            });
+
+            // PHASE 1: Elimination
+            for (let i = 0; i < arr.length; i++) {
+                const x = arr[i];
+
+                if (c1 === x) {
+                    cnt1++;
+                    stepsList.push({
+                        phase: 1,
+                        ptrIndex: i,
+                        c1, cnt1, c2, cnt2,
+                        triples: [...gTriples],
+                        desc: `Elemento '${x}' coincide con Candidate 1 (c1). Incrementamos cnt1 a ${cnt1}.`,
+                        actionType: 'match_c1'
+                    });
+                } else if (c2 === x) {
+                    cnt2++;
+                    stepsList.push({
+                        phase: 1,
+                        ptrIndex: i,
+                        c1, cnt1, c2, cnt2,
+                        triples: [...gTriples],
+                        desc: `Elemento '${x}' coincide con Candidate 2 (c2). Incrementamos cnt2 a ${cnt2}.`,
+                        actionType: 'match_c2'
+                    });
+                } else if (cnt1 === 0) {
+                    c1 = x;
+                    cnt1 = 1;
+                    stepsList.push({
+                        phase: 1,
+                        ptrIndex: i,
+                        c1, cnt1, c2, cnt2,
+                        triples: [...gTriples],
+                        desc: `Ranura c1 libre. Asignamos c1 = '${x}' con cnt1 = 1.`,
+                        actionType: 'fill_c1'
+                    });
+                } else if (cnt2 === 0) {
+                    c2 = x;
+                    cnt2 = 1;
+                    stepsList.push({
+                        phase: 1,
+                        ptrIndex: i,
+                        c1, cnt1, c2, cnt2,
+                        triples: [...gTriples],
+                        desc: `Ranura c2 libre. Asignamos c2 = '${x}' con cnt2 = 1.`,
+                        actionType: 'fill_c2'
+                    });
+                } else {
+                    // Triple cancelation
+                    const canceledGroup = [c1, c2, x];
+                    gTriples.push(canceledGroup);
+                    cnt1--;
+                    cnt2--;
+                    
+                    let descText = `¡Trío de distintos! Se cancela el trío ('${c1}', '${c2}', '${x}'). Decrementamos cnt1 (${cnt1}) y cnt2 (${cnt2}).`;
+                    
+                    if (cnt1 === 0) c1 = null;
+                    if (cnt2 === 0) c2 = null;
+
+                    stepsList.push({
+                        phase: 1,
+                        ptrIndex: i,
+                        c1, cnt1, c2, cnt2,
+                        triples: [...gTriples],
+                        desc: descText,
+                        actionType: 'cancel_triple'
+                    });
+                }
+            }
+
+            // End of Phase 1
+            const candidatesFound = [];
+            if (c1 !== null) candidatesFound.push(c1);
+            if (c2 !== null && c2 !== c1) candidatesFound.push(c2);
+
+            stepsList.push({
+                phase: 2,
+                ptrIndex: arr.length - 1,
+                c1, cnt1, c2, cnt2,
+                triples: [...gTriples],
+                desc: `Finaliza la 1ª pasada. Candidatos supervivientes: [${candidatesFound.map(c => `'${c}'`).join(', ')}]. Iniciamos la 2ª pasada para verificar cuentas exactas.`,
+                actionType: 'phase1_end'
+            });
+
+            // PHASE 2: Verification
+            const n = arr.length;
+            const threshold = Math.floor(n / 3);
+            const verified = [];
+
+            for (const cand of candidatesFound) {
+                const count = arr.filter(el => el === cand).length;
+                const isFrequent = count > threshold;
+                if (isFrequent) verified.push(cand);
+
+                stepsList.push({
+                    phase: 2,
+                    ptrIndex: -1,
+                    c1, cnt1, c2, cnt2,
+                    triples: [...gTriples],
+                    desc: `Verificando '${cand}': cuenta real = ${count}. Umbral (> ${threshold}). Resultado: ${isFrequent ? '¡Es Frecuente! ✅' : 'No alcanza el umbral ❌'}.`,
+                    actionType: 'verify_cand',
+                    verified: [...verified]
+                });
+            }
+
+            // Final Step
+            stepsList.push({
+                phase: 2,
+                ptrIndex: -1,
+                c1, cnt1, c2, cnt2,
+                triples: [...gTriples],
+                desc: `Algoritmo completado. Elementos con más de n/3 (${threshold}) apariciones: [${verified.map(v => `'${v}'`).join(', ')}].`,
+                actionType: 'done',
+                verified: [...verified]
+            });
+
+            return stepsList;
+        }
+
+        // Render Current Step State
+        function renderStep(stepIdx) {
+            if (stepIdx < 0 || stepIdx >= steps.length) return;
+            currentStepIdx = stepIdx;
+            const step = steps[stepIdx];
+
+            // Update Step counter & Desc
+            stepCounter.textContent = `Paso ${stepIdx} / ${steps.length - 1}`;
+            stepDescription.innerHTML = step.desc;
+
+            // Phase badge
+            if (step.phase === 1) {
+                phaseBadge.textContent = "1ª Pasada: Selección de Candidatos";
+                phaseBadge.className = "px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30";
+            } else {
+                phaseBadge.textContent = "2ª Pasada: Verificación Exacta";
+                phaseBadge.className = "px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+            }
+
+            // Render Array Track
+            arrayTrack.innerHTML = '';
+            rawArray.forEach((val, idx) => {
+                const isCurrent = idx === step.ptrIndex;
+                const itemEl = document.createElement('div');
+                itemEl.className = `array-item relative flex flex-col items-center justify-center w-12 h-14 rounded-lg font-bold code-font text-base border transition-all ${
+                    isCurrent 
+                        ? 'bg-blue-600 border-blue-400 text-white active ring-4 ring-blue-500/30' 
+                        : 'bg-slate-800 border-slate-700 text-slate-200'
+                }`;
+                
+                itemEl.innerHTML = `
+                    <span>${val}</span>
+                    <span class="text-[10px] font-normal text-slate-400 absolute bottom-1">#${idx}</span>
+                    ${isCurrent ? '<div class="absolute -top-3 text-blue-400 text-xs animate-bounce"><i class="fa-solid fa-caret-down"></i></div>' : ''}
+                `;
+                arrayTrack.appendChild(itemEl);
+            });
+
+            // Candidates State Card C1
+            valC1.textContent = step.c1 !== null ? step.c1 : 'None';
+            cnt1Badge.textContent = `cnt1 = ${step.cnt1}`;
+            if (step.cnt1 > 0) {
+                cardC1.className = "bg-cyan-950/40 border border-cyan-500/50 rounded-xl p-4 flex flex-col justify-between transition-all relative overflow-hidden shadow-lg shadow-cyan-950/50";
+                statusC1.textContent = "Activo";
+                statusC1.className = "text-cyan-400 font-medium";
+            } else {
+                cardC1.className = "bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 flex flex-col justify-between transition-all relative overflow-hidden opacity-75";
+                statusC1.textContent = "Libre";
+                statusC1.className = "text-slate-400 font-medium";
+            }
+
+            // Candidates State Card C2
+            valC2.textContent = step.c2 !== null ? step.c2 : 'None';
+            cnt2Badge.textContent = `cnt2 = ${step.cnt2}`;
+            if (step.cnt2 > 0) {
+                cardC2.className = "bg-purple-950/40 border border-purple-500/50 rounded-xl p-4 flex flex-col justify-between transition-all relative overflow-hidden shadow-lg shadow-purple-950/50";
+                statusC2.textContent = "Activo";
+                statusC2.className = "text-purple-400 font-medium";
+            } else {
+                cardC2.className = "bg-slate-800/60 border border-slate-700/60 rounded-xl p-4 flex flex-col justify-between transition-all relative overflow-hidden opacity-75";
+                statusC2.textContent = "Libre";
+                statusC2.className = "text-slate-400 font-medium";
+            }
+
+            // Render Triples Stack (Show LAST 3 triples)
+            const triples = step.triples || [];
+            triplesCountBadge.textContent = `g = ${triples.length}`;
+            triplesStack.innerHTML = '';
+
+            if (triples.length === 0) {
+                triplesStack.innerHTML = `
+                    <div class="text-center text-slate-500 text-xs py-8 italic">
+                        No se han cancelado tríos todavía
+                    </div>`;
+            } else {
+                // Get last 3 triples
+                const lastThree = triples.slice(-3);
+                lastThree.forEach((group, idx) => {
+                    const realIdx = triples.length - lastThree.length + idx + 1;
+                    const groupEl = document.createElement('div');
+                    groupEl.className = "triple-card flex items-center justify-between bg-slate-800/90 border border-amber-500/30 px-3 py-2 rounded-lg text-xs shadow-md";
+                    groupEl.innerHTML = `
+                        <span class="text-amber-400/80 font-mono text-[11px]">Trío #${realIdx}:</span>
+                        <div class="flex gap-1.5 code-font font-bold">
+                            <span class="px-2 py-0.5 bg-slate-900 text-cyan-300 rounded border border-cyan-800">${group[0]}</span>
+                            <span class="px-2 py-0.5 bg-slate-900 text-purple-300 rounded border border-purple-800">${group[1]}</span>
+                            <span class="px-2 py-0.5 bg-slate-900 text-amber-300 rounded border border-amber-800">${group[2]}</span>
+                        </div>
+                    `;
+                    triplesStack.appendChild(groupEl);
+                });
+            }
+
+            // Phase 2 Results Panel
+            const n = rawArray.length;
+            const threshold = Math.floor(n / 3);
+            resN.textContent = n;
+            resThreshold.textContent = `${threshold}  (es decir, > ${threshold})`;
+
+            if (step.phase === 2 && step.verified) {
+                resFinal.textContent = JSON.stringify(step.verified);
+            } else {
+                resFinal.textContent = "En proceso...";
+            }
+
+            // Buttons state
+            btnPrev.disabled = stepIdx === 0;
+            btnNext.disabled = stepIdx === steps.length - 1;
+        }
+
+        // Action Handlers
+        function loadSimulation() {
+            stopAutoPlay();
+            rawArray = parseInput(arrayInput.value);
+            if (rawArray.length === 0) {
+                alert("Por favor ingresa un arreglo válido.");
+                return;
+            }
+            steps = generateSteps(rawArray);
+            renderStep(0);
+        }
+
+        function nextStep() {
+            if (currentStepIdx < steps.length - 1) {
+                renderStep(currentStepIdx + 1);
+            } else {
+                stopAutoPlay();
+            }
+        }
+
+        function prevStep() {
+            if (currentStepIdx > 0) {
+                renderStep(currentStepIdx - 1);
+            }
+        }
+
+        function toggleAutoPlay() {
+            if (autoPlayTimer) {
+                stopAutoPlay();
+            } else {
+                startAutoPlay();
+            }
+        }
+
+        function startAutoPlay() {
+            if (currentStepIdx >= steps.length - 1) {
+                renderStep(0);
+            }
+            playIcon.className = "fa-solid fa-pause";
+            playText.textContent = "Pausar";
+            btnAutoPlay.className = "px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-medium rounded-lg shadow-lg shadow-amber-600/20 flex items-center gap-2 transition-all";
+            
+            const speed = parseInt(speedSlider.value, 10);
+            autoPlayTimer = setInterval(() => {
+                if (currentStepIdx < steps.length - 1) {
+                    nextStep();
+                } else {
+                    stopAutoPlay();
+                }
+            }, speed);
+        }
+
+        function stopAutoPlay() {
+            if (autoPlayTimer) {
+                clearInterval(autoPlayTimer);
+                autoPlayTimer = null;
+            }
+            playIcon.className = "fa-solid fa-play";
+            playText.textContent = "Auto";
+            btnAutoPlay.className = "px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg shadow-lg shadow-emerald-600/20 flex items-center gap-2 transition-all";
+        }
+
+        // Event Listeners
+        btnLoad.addEventListener('click', loadSimulation);
+        btnNext.addEventListener('click', nextStep);
+        btnPrev.addEventListener('click', prevStep);
+        btnReset.addEventListener('click', () => renderStep(0));
+        btnAutoPlay.addEventListener('click', toggleAutoPlay);
+
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                arrayInput.value = btn.dataset.preset;
+                loadSimulation();
+            });
+        });
+
+        // Speed adjustment on fly
+        speedSlider.addEventListener('input', () => {
+            if (autoPlayTimer) {
+                stopAutoPlay();
+                startAutoPlay();
+            }
+        });
+
+        // Initialize on load
+        window.onload = function() {
+            loadSimulation();
+        };
+    </script>
+</body>
+</html>

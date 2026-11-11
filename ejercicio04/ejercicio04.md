@@ -704,6 +704,5 @@ Implementar la máquina de turing
 
 - Instrumentar la máquina paso a paso y pegar la tabla de pasos reales y de Φ para los primeros 32 incrementos, para ver el pico de costo en 2ᵏ − 1 junto con la caída del potencial que lo paga.
 - Añadir la figura de la cinta antes y después del incremento 16 (de `01111` a `10000`) con el camino del cabezal marcado, que es el caso donde la cuenta se ve entera.
-- Extender el análisis a la máquina con `decrementar` y exhibir la oscilación 1000⋯0 ↔ 0111⋯1 del ejercicio 2 de la conferencia 4, midiendo que el costo por operación es Θ(log n) y que por tanto **ningún** potencial puede salvarla.
 - Rehacer la cuenta con una representación redundante de dígitos {0, 1, 2} y comprobar que allí sí se consigue O(1) amortizado con las dos operaciones, lo que separa el problema de la representación.
 - Comparar el total medido con 2n y con la serie ∑⌊n/2ⁱ⌋ para n hasta 10⁵, para ver cuánto margen deja la constante C + 2 frente al costo real.
