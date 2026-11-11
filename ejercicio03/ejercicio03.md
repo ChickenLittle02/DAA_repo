@@ -197,52 +197,41 @@ class PilaConMinimoContador:
 
 ## Correctitud (Invariante)
 
-**Invariante de representación.** Válido antes y después de cada operación:
+**Invariante de representación.** Vale antes y después de cada operación. El índice `0` es la base de `S` y el índice `n − 1` es el tope, con `n = |S|`.
 
-> La suma de los contadores en `M` es igual a la longitud de `S` (`sum(c for _, c in M) = |S|`), y el tope de `M` (`M[-1][0]`) almacena siempre el mínimo global actual de toda la pila `S`. Además, cada par `(v, c)` en `M` representa un bloque de `c` elementos consecutivos en la base del prefijo correspondiente cuyo valor mínimo es `v`.
+> `M` está vacía exactamente cuando `S` está vacía. Si `S` no está vacía, para cada `i` con `0 ≤ i < n` sea `m(i) = mín(S[0], …, S[i])`, y sea `M = [(v_1, c_1), …, (v_k, c_k)]`. Entonces:
+>
+> 1. `v_1 > v_2 > … > v_k` y `c_j ≥ 1` para todo `j`.
+> 2. El tope de `M` es el mínimo de toda la pila: `v_k = m(n − 1) = mín(S)`.
+> 3. Existen índices `0 = p_1 < p_2 < … < p_k < n` que parten `S` en `k` segmentos. El segmento `j` ocupa el intervalo `[p_j, p_{j+1})`, con el convenio `p_{k+1} = n`. En ese segmento `m(i) = v_j` —luego todo elemento del segmento es `≥ v_j`— y `c_j` es la cantidad de posiciones `i` del segmento con `S[i] = v_j`.
 
-ARREGLAR:
-hay que arreglar bien la invariante, EN ESTA INVARIANTE DICE QUE La suma de los contadores en `M` es igual a la longitud de `S` y esto creo que no es cierto, pues cuando se agrega un elemento que es mayor que el mínimo actual el contador de M no lo tiene en cuenta, por lo que esos valores se dejan de contar.
+Cada par `(v_j, c_j)` es el mínimo de prefijo que empieza en `p_j`, junto con las copias de ese valor dentro de su segmento. Una posición `i` entra en algún contador exactamente cuando `S[i] = m(i)`. Si `S[i] > m(i)`, el elemento queda en `S` y fuera de `M`. Por eso la suma de los contadores es el número de posiciones que alcanzan el mínimo de su prefijo, y esa suma es a lo sumo `|S|`.
 
+Con `S = [5, 8, 5, 3, 4]` (base a la izquierda, tope a la derecha) los mínimos de prefijo son `5, 5, 5, 3, 3`. Alcanzan ese mínimo la primera `5`, la segunda `5` y el `3`. Queda `M = [(5, 2), (3, 1)]`: el segmento `[0, 3)` aporta las dos copias de `5`, y el segmento `[3, 5)` aporta la copia de `3`. La suma de contadores es `3` y `|S| = 5`; el `8` y el `4` superan el mínimo de su prefijo.
 
+* **Inicialización.** `S` y `M` se crean vacías. Se cumple el caso vacío del invariante.
 
-* **Inicialización.** Ambas pilas están vacías: `S` y `M` están vacías, la suma de contadores es 0 y el invariante se cumple trivialmente.
-* **Mantenimiento.** Analizamos las operaciones que modifican el estado:
-* `push(x)` con `x < M[-1][0]` (o pila vacía): Se añade un nuevo par `[x, 1]` a `M` y `x` a `S`. Como `x` es estrictamente menor que cualquier elemento anterior, se establece como el nuevo mínimo global y la suma total de elementos aumenta en 1. ✓
+* **Mantenimiento.** Se asume el invariante en el estado previo.
 
-insertar aquí una foto que visualice el ejemplo
-![Diagrama de la pila](algoritmo2working.jpeg)
+  * `push(x)` con pila vacía. Queda `S = [x]` y `M = [(x, 1)]`. El único segmento arranca en `p_1 = 0`, con `m(0) = x` y `c_1 = 1`. ✓
 
+  * `push(x)` con pila no vacía y `x < v_k`. Los prefijos `S[0..i]` para `i < n` no cambian, así que sus mínimos y los segmentos `1..k` se conservan. El elemento nuevo ocupa el índice `n` y `m(n) = mín(v_k, x) = x`: por el segmento `k`, todo elemento ya presente es `≥ v_k > x`. El código agrega el par `(x, 1)`. Los valores quedan `v_1 > … > v_k > x`, el segmento nuevo es el singleton `{n}` y su contador es `1`. El mínimo global pasa a ser `x`. ✓
 
-* `push(x)` con `x == M[-1][0]`: El valor coincide con el mínimo actual. Se incrementa en 1 el contador del tope de `M` (`M[-1][1] += 1`) y se añade `x` a `S`. El mínimo global no cambia y la correspondencia de elementos se preserva. ✓
+  * `push(x)` con `x = v_k`. Los mínimos de los prefijos anteriores no cambian y `m(n) = v_k`. El índice nuevo cae en el último segmento y vale `v_k`, así que ese segmento tiene una copia más de `v_k`. El código ejecuta `c_k += 1`. Los valores de `M` siguen estrictamente decrecientes y `v_k` sigue siendo el mínimo de `S`. ✓
 
-insertar aquí una foto que visualice el ejemplo
-![Diagrama de la pila](algoritmo2working1.jpeg)
+  * `push(x)` con `x > v_k`. Los mínimos de los prefijos anteriores no cambian y `m(n) = v_k`. El índice nuevo cae en el último segmento y es estrictamente mayor que `v_k`, así que no agrega una copia de `v_k`. El código deja `M` igual. Los contadores y el mínimo global siguen como pide el invariante. ✓
 
-* `push(x)` con `x > M[-1][0]`: El valor es mayor que el mínimo actual. No se altera `M` y se añade `x` a `S`. Como `x` no puede ser el nuevo mínimo, la estructura de mínimos históricos en `M` permanece intacta. ✓
+  * `pop()` con la pila no vacía. Sea `y = S[n − 1]`. Por la cláusula 2, `y ≥ v_k`, y el índice `n − 1` pertenece al último segmento. Al quitar `y`, cada prefijo `S[0..i]` con `i < n − 1` queda igual, y con él su `m(i)`. El código distingue los dos casos con la comparación `y == v_k`.
 
-insertar aqui una foto que visualice el ejemplo
-![Diagrama de la pila](algoritmo2working2.jpeg)
+    * Si `y > v_k`, esa posición no formaba parte de `c_k` y el código no modifica `M`. El último segmento pierde un elemento mayor que `v_k` y el contador sigue exacto. Como `c_k ≥ 1`, en la pila queda al menos una copia de `v_k`: el arranque `p_k` se conserva y `v_k` sigue siendo el mínimo. ✓
 
-* `pop()`: Se extrae el elemento `y` de `S`. Si `y == M[-1][0]`, se decrementa el contador del mínimo actual en 1; si llega a 0, se elimina el par de `M`, exponiendo automáticamente el mínimo anterior. 
-insertar aqui una foto que visualice el ejemplo
-![Diagrama de la pila](algoritmo2working3.jpeg)
+    * Si `y = v_k`, esa posición formaba parte de `c_k` y el código decrementa el contador.
+      * Si después del decremento `c_k ≥ 1`, antes había al menos dos copias de `v_k` en el último segmento. El segmento ocupa más de un casillero, el tope está por encima de `p_k` y el arranque no se mueve. El mínimo global sigue siendo `v_k`. ✓
+      * Si el contador llega a `0`, antes del `pop` se tenía `c_k = 1` y el tope era esa única copia. El segmento empieza en `p_k` con `S[p_k] = v_k`, luego la única copia es `p_k`. Como además es el tope, `p_k = n − 1` y el segmento es el singleton `{n − 1}`. Quitarlo vacía el segmento: el código elimina el par. Si `S` queda vacía, `M` queda vacía. Si no, los segmentos `1..k − 1` cubren exactamente la pila restante y el nuevo tope de `M` es `v_{k − 1}`, el mínimo de lo que queda. ✓
 
+  * `tope()` y `minimo()` no modifican el estado.
 
-Si `y > M[-1][0]`, el elemento retirado no era el mínimo actual, por lo que `M` no se modifica, garantizando que el mínimo activo sigue siendo correcto. ✓
-
-insertar aquí una foto que visualice el ejemplo
-![Diagrama de la pila](algoritmo2working4.jpeg)
-
-
-
-* `tope()` y `minimo()` no modifican el estado.
-
-
-insertar aquí una foto que visualice el ejemplo.
-![Diagrama de la pila](algoritmo2working5.jpeg)
-
-* **Conclusión.** En cualquier estado válido, `minimo()` devuelve `M[-1][0]`, que por el invariante es el menor elemento presente en toda la pila `S`.
+* **Conclusión.** Con la pila no vacía, `minimo()` devuelve `M[-1][0] = v_k`. Por la cláusula 2 ese valor es `mín(S)`, que es la postcondición pedida.
 
 ---
 
@@ -357,26 +346,44 @@ Para garantizar que la variante de contadores se comporta exactamente igual que 
 ```python
 import random
 
-def verificar_equivalencia_pilas(num_operaciones=5000):
+SEMILLA = 20261111
+
+def minimo_por_recorrido(elementos):
+    """Mínimo calculado a mano: recorre todos los elementos de la pila."""
+    menor = elementos[0]
+    for valor in elementos[1:]:
+        if valor < menor:
+            menor = valor
+    return menor
+
+def verificar_equivalencia_pilas(num_operaciones=10000, semilla=SEMILLA):
+    rng = random.Random(semilla)
     pila_original = PilaConMinimo()
     pila_contador = PilaConMinimoContador()
-    
+
     for _ in range(num_operaciones):
         # 60% de probabilidad de hacer push, 40% de pop (si la pila no está vacía)
-        if not pila_original.S or random.random() < 0.6:
-            x = random.randint(-100, 100)
+        if not pila_original.S or rng.random() < 0.6:
+            x = rng.randint(-500, 500)
             pila_original.push(x)
             pila_contador.push(x)
         else:
             pila_original.pop()
             pila_contador.pop()
-        
-        # Si hay elementos, verificamos que los resultados coincidan
+
         if pila_original.S:
+            minimo_manual_original = minimo_por_recorrido(pila_original.S)
+            minimo_manual_contador = minimo_por_recorrido(pila_contador.S)
             assert pila_original.tope() == pila_contador.tope(), "Error: El tope no coincide"
             assert pila_original.minimo() == pila_contador.minimo(), "Error: El mínimo no coincide"
             assert len(pila_original.S) == len(pila_contador.S), "Error: El tamaño de S no coincide"
-            
+            assert pila_original.minimo() == minimo_manual_original, (
+                "Error: el mínimo de la pila original no coincide con el recorrido de S"
+            )
+            assert pila_contador.minimo() == minimo_manual_contador, (
+                "Error: el mínimo de la variante no coincide con el recorrido de S"
+            )
+
     print("¡Prueba superada! La variante con contadores es funcionalmente equivalente.")
 
 # Ejecutar la prueba
@@ -386,7 +393,7 @@ verificar_equivalencia_pilas()
 
 ### Validación Funcional Automatizada
 
-Para comprobar empíricamente que la variante de contadores se comporta de manera idéntica a la solución original ante una secuencia masiva de operaciones aleatorias (inserciones y extracciones intercaladas), se ejecutó una suite de pruebas automatizadas con `assert` utilizando $10,000$ operaciones. 
+Para comprobar empíricamente que la variante de contadores se comporta de manera idéntica a la solución original ante una secuencia masiva de operaciones aleatorias (inserciones y extracciones intercaladas), se ejecutó una suite de pruebas automatizadas con `assert` utilizando $10,000$ operaciones y la semilla `20261111`. En cada paso, además de comparar las dos pilas entre sí, el mínimo de cada una se contrastó con el mínimo obtenido recorriendo todos los elementos de `S`. 
 
 El resultado de la ejecución en consola confirma la equivalencia funcional:
 \`\`\`text
@@ -458,16 +465,16 @@ def generar_grafico_comparativo():
 
 ### Resultados Empíricos y Verificación de Hipótesis
 
-Al ejecutar las simulaciones dinámicas para distintos tamaños de entrada ($n$), se obtuvieron los siguientes valores de consumo de memoria medidos en palabras:
+Al ejecutar las simulaciones dinámicas para distintos tamaños de entrada ($n$), con la semilla `20261111` y cinco repeticiones del caso promedio, se obtuvieron los siguientes valores de consumo de memoria medidos en palabras. Volver a ejecutar `analisis_pilas_dinamico.py` reproduce esta tabla y el gráfico.
 
 | $n$ (elementos) | Alg. 1 (Promedio) | Alg. 1 (Peor Caso) | Alg. 2 (Promedio) | Alg. 2 (Peor Caso) | Esperado ($n + 2H_n$) | ¿Cumple Hipótesis? |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **100** | 200.0 | 200 | 108.8 | 300 | 110.36 | **SÍ** |
-| **500** | 1000.0 | 1000 | 510.0 | 1500 | 513.58 | **SÍ** |
-| **1000** | 2000.0 | 2000 | 1018.4 | 3000 | 1014.97 | **SÍ** |
-| **2500** | 5000.0 | 5000 | 2515.2 | 7500 | 2516.8 | **SÍ** |
-| **5000** | 10000.0 | 10000 | 5017.6 | 15000 | 5018.19 | **SÍ** |
-| **10000** | 20000.0 | 10000 | 10017.6 | 30000 | 10019.58 | **SÍ** |
+| **100** | 200.0 | 200 | 114.0 | 300 | 110.36 | **SÍ** |
+| **500** | 1000.0 | 1000 | 516.4 | 1500 | 513.58 | **SÍ** |
+| **1000** | 2000.0 | 2000 | 1019.6 | 3000 | 1014.97 | **SÍ** |
+| **2500** | 5000.0 | 5000 | 2517.2 | 7500 | 2516.8 | **SÍ** |
+| **5000** | 10000.0 | 10000 | 5018.8 | 15000 | 5018.19 | **SÍ** |
+| **10000** | 20000.0 | 20000 | 10016.0 | 30000 | 10019.58 | **SÍ** |
 
 #### Conclusión del análisis de datos:
 1. **Algoritmo 1 (Original):** Mantiene una estabilidad estricta de $2n$ palabras tanto en promedio como en el peor caso, validando su comportamiento determinista.
@@ -497,10 +504,6 @@ El gráfico de rendimiento espacial permite identificar claramente tres zonas de
 
 * **La solución original** mantiene una línea recta y predecible en $2n$ palabras, garantizando estabilidad en el peor caso.
 * **La variante de contadores** demuestra gráficamente su ventaja en escenarios reales o aleatorios (donde el número de cambios de mínimo es logarítmico, $O(\ln n)$), pero penaliza el **peor caso absoluto** alcanzando hasta $3n$ palabras ($n$ de la pila principal más $2n$ de los pares en la pila secundaria), justificando por qué la versión original sigue siendo la elección estándar para cotas estrictas de peor caso.
-
-
-ARREGALRA QUE EN LOS CÓDIGOS DE ANÁLISIS QUE USEN ALEATORIEDAD SE REALICEN DE UNA MANERA EN QUE SEAN ALEATORIOS, PERO QUE SE PUEDA REPLICAR EL MISMO EJEMPLO QUE SE USÓ PARA CREAR LAS TABLAS O GRÁFICOS
-
 
 
 ### Conclusión

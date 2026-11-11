@@ -2,6 +2,10 @@ import random
 import math
 import matplotlib.pyplot as plt
 
+# Semilla fija: las secuencias siguen siendo aleatorias, pero repetir
+# el script reproduce la misma prueba, la misma tabla y el mismo gráfico.
+SEMILLA = 20261111
+
 # ==========================================
 # 1. IMPLEMENTACIÓN DE LAS ESTRUCTURAS
 # ==========================================
@@ -63,27 +67,49 @@ class PilaConMinimoContador:
 # 2. PRUEBAS FUNCIONALES CON ASSERT
 # ==========================================
 
-def verificar_equivalencia_pilas(num_operaciones=10000):
+def minimo_por_recorrido(elementos):
+    """Mínimo calculado a mano: recorre todos los elementos de la pila."""
+    menor = elementos[0]
+    for valor in elementos[1:]:
+        if valor < menor:
+            menor = valor
+    return menor
+
+
+def verificar_equivalencia_pilas(num_operaciones=10000, semilla=SEMILLA):
+    rng = random.Random(semilla)
     pila_original = PilaConMinimo()
     pila_contador = PilaConMinimoContador()
-    
+
     for _ in range(num_operaciones):
         # 60% de probabilidad de push, 40% de pop (si no está vacía)
-        if not pila_original.S or random.random() < 0.6:
-            x = random.randint(-500, 500)
+        if not pila_original.S or rng.random() < 0.6:
+            x = rng.randint(-500, 500)
             pila_original.push(x)
             pila_contador.push(x)
         else:
             pila_original.pop()
             pila_contador.pop()
-        
+
         # Validaciones funcionales
         if pila_original.S:
+            minimo_manual_original = minimo_por_recorrido(pila_original.S)
+            minimo_manual_contador = minimo_por_recorrido(pila_contador.S)
             assert pila_original.tope() == pila_contador.tope(), "Error: El tope no coincide"
             assert pila_original.minimo() == pila_contador.minimo(), "Error: El mínimo no coincide"
             assert len(pila_original.S) == len(pila_contador.S), "Error: El tamaño de S no coincide"
-            
-    print(">>> ¡Prueba de equivalencia funcional con assert superada con éxito!\n")
+            assert pila_original.minimo() == minimo_manual_original, (
+                "Error: el mínimo de la pila original no coincide con el recorrido de S"
+            )
+            assert pila_contador.minimo() == minimo_manual_contador, (
+                "Error: el mínimo de la variante no coincide con el recorrido de S"
+            )
+
+    print(
+        ">>> ¡Prueba de equivalencia funcional con assert superada con éxito! "
+        f"(semilla {semilla}, {num_operaciones} operaciones; "
+        "el mínimo se contrastó en cada paso con un recorrido de toda la pila)\n"
+    )
 
 
 # ==========================================
@@ -103,10 +129,13 @@ def medir_uso_memoria_real(pila):
     return 0
 
 
-def analizar_casos_memoria_dinamico(tamanios=None, repeticiones_promedio=5):
+def analizar_casos_memoria_dinamico(tamanios=None, repeticiones_promedio=5, semilla=SEMILLA):
     if tamanios is None:
         tamanios = [100, 500, 1000, 2500, 5000, 10000]
 
+    rng = random.Random(semilla)
+
+    print(f"Semilla del caso promedio: {semilla} ({repeticiones_promedio} repeticiones por n)")
     print("=" * 115)
     print(f"{'n (elementos)':<12} | {'Alg. 1 (Prom)':<13} | {'Alg. 1 (Peor)':<13} | {'Alg. 2 (Prom)':<13} | {'Alg. 2 (Peor)':<13} | {'Esperado ($n+2H_n$)':<18} | {'¿Cumple?':<8}")
     print("=" * 115)
@@ -115,7 +144,8 @@ def analizar_casos_memoria_dinamico(tamanios=None, repeticiones_promedio=5):
         'n': [],
         'alg1_prom': [], 'alg1_peor': [],
         'alg2_prom': [], 'alg2_peor': [],
-        'teorico': []
+        'teorico': [],
+        'semilla': semilla,
     }
 
     for n in tamanios:
@@ -125,7 +155,7 @@ def analizar_casos_memoria_dinamico(tamanios=None, repeticiones_promedio=5):
         mem_a2_prom_acum = 0
         
         for _ in range(repeticiones_promedio):
-            datos_rand = [random.randint(1, 1000000) for _ in range(n)]
+            datos_rand = [rng.randint(1, 1000000) for _ in range(n)]
             
             p1_prom = PilaConMinimo()
             p2_prom = PilaConMinimoContador()
@@ -191,7 +221,10 @@ def generar_grafico_respaldo(datos):
 
     plt.xlabel("Tamaño de la secuencia de entrada ($n$)", fontsize=11)
     plt.ylabel("Consumo total de memoria (Palabras)", fontsize=11)
-    plt.title("Análisis Empírico de Memoria: Algoritmo Original vs. Variante de Contadores", fontsize=13)
+    plt.title(
+        f"Análisis Empírico de Memoria: Algoritmo Original vs. Variante de Contadores (semilla {datos['semilla']})",
+        fontsize=13,
+    )
     plt.legend(fontsize=10)
     plt.grid(True, linestyle="--", alpha=0.6)
     plt.tight_layout()
